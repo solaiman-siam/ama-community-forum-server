@@ -41,6 +41,14 @@ async function run() {
       jwt.sign(user, token, { expiresIn: "100d" });
     });
 
+    // get tag search post
+    app.get("/tag-search", async (req, res) => {
+      const tag = req.query.tag;
+      const query = { tag: tag };
+      const result = await postCollection.find(query).toArray();
+      res.send(result);
+    });
+
     // delete a post
     app.delete("/delete-post/:id", async (req, res) => {
       const id = req.params.id;
