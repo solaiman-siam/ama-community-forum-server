@@ -1,7 +1,9 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 5000;
 const app = express();
 
@@ -10,8 +12,11 @@ app.use(express.json());
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+    optionSuccessStatus: 200,
   })
 );
+app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.8vxmi4o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -27,6 +32,53 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
+    const postCollection = client.db("amaDB").collection("posts");
+
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = process.env.ACCESS_TOKEN_SECRET;
+
+      jwt.sign(user, token, { expiresIn: "100d" });
+    });
+
+    // delete a post
+    app.delete("/delete-post/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await postCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // get recent 3 user post
+    app.get("/recent-post/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const sort = { date: -1 };
+      const result = await postCollection.find(query).sort(sort).toArray();
+      res.send(result);
+    });
+
+    // get all post
+    app.get("/all-post", async (req, res) => {
+      const sort = { date: -1 };
+      const result = await postCollection.find().sort(sort).toArray();
+      res.send(result);
+    });
+
+    // get users post
+    app.get("/my-post/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await postCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // save post data to db
+    app.post("/add-post", async (req, res) => {
+      const postData = req.body;
+      const result = await postCollection.insertOne(postData);
+      res.send(result);
+    });
 
     // save new logged  user info
     app.post("/users", async (req, res) => {
