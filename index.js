@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
 
 // middleware
@@ -33,12 +34,41 @@ async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
     const postCollection = client.db("amaDB").collection("posts");
+    const announcementCollection = client
+      .db("amaDB")
+      .collection("announcements");
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = process.env.ACCESS_TOKEN_SECRET;
 
       jwt.sign(user, token, { expiresIn: "100d" });
+    });
+
+    // stripe payment related api
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    // get all announcement
+    app.get("/all-announcement", async (req, res) => {
+      const result = await announcementCollection.find().toArray();
+      res.send(result);
+    });
+
+    // add announcement to db
+    app.post("/add-announcement", async (req, res) => {
+      const announcementData = req.body;
+      const result = await announcementCollection.insertOne(announcementData);
+      res.send(result);
     });
 
     // get tag search post
