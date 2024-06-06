@@ -30,6 +30,12 @@ const client = new MongoClient(uri, {
   },
 });
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+};
+
 async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
@@ -38,11 +44,21 @@ async function run() {
       .db("amaDB")
       .collection("announcements");
 
+    // jwt token send to client side
     app.post("/jwt", async (req, res) => {
-      const user = req.body;
-      const token = process.env.ACCESS_TOKEN_SECRET;
+      const email = req.body;
+      const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "100d",
+      });
+      res.cookie("token", token, { ...cookieOptions }).send({ success: true });
+    });
 
-      jwt.sign(user, token, { expiresIn: "100d" });
+    // remove token to cookie
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      res
+        .clearCookie("cookie", { ...cookieOptions, maxAge: 0 })
+        .send({ success: true });
     });
 
     // stripe payment related api
