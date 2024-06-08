@@ -74,6 +74,36 @@ async function run() {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
+    // update role
+    app.post("/make-admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    // search user via username
+    app.get("/search-users", async (req, res) => {
+      const searchWord = req.query.keyword;
+      const result = await userCollection
+        .find({
+          name: { $regex: searchWord, $options: "i" },
+        })
+        .toArray();
+      res.send(result);
+    });
+
+    // get all users
+    app.get("/manage-users", async (req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
     // get all announcement
     app.get("/all-announcement", async (req, res) => {
       const result = await announcementCollection.find().toArray();
