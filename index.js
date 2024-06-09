@@ -50,7 +50,7 @@ async function run() {
       const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "100d",
       });
-      res.cookie("token", token, { ...cookieOptions }).send({ success: true });
+      res.cookie("token", token, ...cookieOptions).send({ success: true });
     });
 
     // remove token to cookie
