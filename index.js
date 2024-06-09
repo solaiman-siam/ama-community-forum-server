@@ -40,6 +40,7 @@ async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
     const postCollection = client.db("amaDB").collection("posts");
+    const tagCollection = client.db("amaDB").collection("tags");
     const announcementCollection = client
       .db("amaDB")
       .collection("announcements");
@@ -50,7 +51,7 @@ async function run() {
       const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "100d",
       });
-      res.cookie("token", token, ...cookieOptions).send({ success: true });
+      res.cookie("token", token, cookieOptions).send({ success: true });
     });
 
     // remove token to cookie
@@ -72,6 +73,59 @@ async function run() {
       });
 
       res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    app.get("/membership/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
+
+    // upgrade user role
+    app.post("/upgrade/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      updateDoc = {
+        $set: {
+          membershipStatus: "Member",
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+    // get recent search tag
+    app.get("/stored-tags", async (req, res) => {
+      const sort = { date: -1 };
+      const result = await tagCollection.find().sort(sort).toArray();
+      res.send(result);
+    });
+
+    // store search tag
+    app.post("/store-searchTag", async (req, res) => {
+      const storeTag = req.query.storeTag;
+      const allTags = await tagCollection.find().toArray();
+      const isExist = allTags.find((item) => item.tag === storeTag);
+      if (!isExist && storeTag !== "") {
+        const result = await tagCollection.insertOne({
+          tag: storeTag,
+          date: new Date(),
+        });
+        res.send(result);
+      }
+    });
+
+    // get search post
+    app.get("/search-post", async (req, res) => {
+      const searchTag = req.query.searchTag;
+      const sort = { date: -1 };
+      const result = await postCollection
+        .find({
+          tag: { $regex: searchTag, $options: "i" },
+        })
+        .sort(sort)
+        .toArray();
+      res.send(result);
     });
 
     // update role
@@ -121,7 +175,8 @@ async function run() {
     app.get("/tag-search", async (req, res) => {
       const tag = req.query.tag;
       const query = { tag: tag };
-      const result = await postCollection.find(query).toArray();
+      const sort = { date: -1 };
+      const result = await postCollection.find(query).sort(sort).toArray();
       res.send(result);
     });
 
@@ -164,6 +219,14 @@ async function run() {
       res.send(result);
     });
 
+    // get user status
+    // app.get("/user-status/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const query = { email: email };
+    //   const result = await userCollection.findOne(query);
+    //   res.send(result);
+    // });
+
     // save new logged  user info
     app.post("/users", async (req, res) => {
       const userData = req.body;
@@ -174,7 +237,6 @@ async function run() {
       if (isExist) {
         return;
       }
-
       const result = await userCollection.insertOne(userData);
       res.send(result);
     });
