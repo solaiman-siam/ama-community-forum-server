@@ -108,7 +108,6 @@ async function run() {
       const storeTag = req.query.storeTag;
       const allTags = await tagCollection.find().toArray();
       const isExist = allTags.find((item) => item.tag === storeTag);
-      console.log(isExist);
 
       if (isExist) {
         const query = { tag: storeTag };
@@ -130,11 +129,24 @@ async function run() {
       }
     });
 
+    // get all comments post and users count
+    app.get("/statistics", async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const posts = await postCollection.estimatedDocumentCount();
+      const comments = await commentCollection.estimatedDocumentCount();
+      res.send({ users, posts, comments });
+    });
+
     // add comment
     app.post("/add-comment", async (req, res) => {
       const commentData = req.body;
       const result = await commentCollection.insertOne(commentData);
       res.send(result);
+      if (result.insertedId) {
+        const query = { _id: new ObjectId(commentData.postId) };
+        const updateOne = { $inc: { comment: 1 } };
+        const allPost = await postCollection.updateOne(query, updateOne);
+      }
     });
 
     // get comment
