@@ -40,6 +40,7 @@ async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
     const postCollection = client.db("amaDB").collection("posts");
+    const commentCollection = client.db("amaDB").collection("comments");
     const tagCollection = client.db("amaDB").collection("tags");
     const announcementCollection = client
       .db("amaDB")
@@ -89,6 +90,7 @@ async function run() {
       updateDoc = {
         $set: {
           membershipStatus: "Member",
+          postLimit: "unlimited",
         },
       };
       const result = await userCollection.updateOne(query, updateDoc);
@@ -106,6 +108,19 @@ async function run() {
       const storeTag = req.query.storeTag;
       const allTags = await tagCollection.find().toArray();
       const isExist = allTags.find((item) => item.tag === storeTag);
+      console.log(isExist);
+
+      if (isExist) {
+        const query = { tag: storeTag };
+        updateDoc = {
+          $set: {
+            date: new Date(),
+          },
+        };
+        const result = await tagCollection.updateOne(query, updateDoc);
+        res.send(result);
+      }
+
       if (!isExist && storeTag !== "") {
         const result = await tagCollection.insertOne({
           tag: storeTag,
@@ -113,6 +128,29 @@ async function run() {
         });
         res.send(result);
       }
+    });
+
+    // add comment
+    app.post("/add-comment", async (req, res) => {
+      const commentData = req.body;
+      const result = await commentCollection.insertOne(commentData);
+      res.send(result);
+    });
+
+    // get comment
+    app.get("/comments/:id", async (req, res) => {
+      const postId = req.params.id;
+      const query = { postId: postId };
+      const result = await commentCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // get post details
+    app.get("/post-details/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await postCollection.findOne(query);
+      res.send(result);
     });
 
     // get search post
