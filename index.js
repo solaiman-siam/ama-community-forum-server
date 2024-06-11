@@ -37,6 +37,22 @@ const cookieOptions = {
   sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
 };
 
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) {
+    res.status(401).send({ message: "unauthorized access" });
+  }
+  if (token) {
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+      if (error) {
+        res.status(401).send({ message: "unauthorized access" });
+      }
+      req.decoded = decoded;
+      next();
+    });
+  }
+};
+
 async function run() {
   try {
     const userCollection = client.db("amaDB").collection("users");
@@ -55,7 +71,7 @@ async function run() {
       const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "100d",
       });
-      res.cookie("token", token, cookieOptions).send({ success: true });
+      res.cookie("token", token, { ...cookieOptions }).send({ success: true });
     });
 
     // remove token to cookie
@@ -109,12 +125,25 @@ async function run() {
       res.send(result);
     });
 
+    // get all post
+    app.get("/all-post", async (req, res) => {
+      const pages = parseInt(req.query.pages) - 1;
+      const size = parseInt(req.query.size);
+
+      const sort = { date: -1 };
+      const result = await postCollection
+        .find()
+        .sort(sort)
+        .skip(pages * size)
+        .limit(size)
+        .toArray();
+      res.send(result);
+    });
+
     // get Popular post
     app.get("/popular-post", async (req, res) => {
       const pages = parseInt(req.query.pages) - 1;
       const size = parseInt(req.query.size);
-
-      console.log(pages, size);
 
       const result = await postCollection
         .aggregate([
@@ -263,7 +292,7 @@ async function run() {
     });
 
     // get post details
-    app.get("/post-details/:id", async (req, res) => {
+    app.get("/post-details/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await postCollection.findOne(query);
@@ -367,21 +396,6 @@ async function run() {
     app.get("/post-count", async (req, res) => {
       const result = await postCollection.countDocuments();
       res.send({ count: result });
-    });
-
-    // get all post
-    app.get("/all-post", async (req, res) => {
-      const pages = parseInt(req.query.pages) - 1;
-      const size = parseInt(req.query.size);
-
-      const sort = { date: -1 };
-      const result = await postCollection
-        .find()
-        .sort(sort)
-        .skip(pages * size)
-        .limit(size)
-        .toArray();
-      res.send(result);
     });
 
     // get users post
