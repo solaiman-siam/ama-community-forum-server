@@ -110,7 +110,29 @@ async function run() {
     });
 
     // get Popular post
-    app.get("/popular-post", async (req, res) => {});
+    app.get("/popular-post", async (req, res) => {
+      const pages = parseInt(req.query.pages) - 1;
+      const size = parseInt(req.query.size);
+
+      console.log(pages, size);
+
+      const result = await postCollection
+        .aggregate([
+          {
+            $addFields: {
+              voteDifference: { $subtract: ["$upVote", "$downVote"] },
+            },
+          },
+          {
+            $sort: { voteDifference: -1 },
+          },
+        ])
+        .skip(pages * size)
+        .limit(size)
+        .toArray();
+
+      res.send(result);
+    });
 
     // get membership
     app.get("/membership/:email", async (req, res) => {
@@ -250,6 +272,8 @@ async function run() {
 
     // get search post
     app.get("/search-post", async (req, res) => {
+      const pages = parseInt(req.query.pages) - 1;
+      const size = parseInt(req.query.size);
       const searchTag = req.query.searchTag;
       const sort = { date: -1 };
       const result = await postCollection
@@ -257,6 +281,8 @@ async function run() {
           tag: { $regex: searchTag, $options: "i" },
         })
         .sort(sort)
+        .skip(pages * size)
+        .limit(size)
         .toArray();
       res.send(result);
     });
@@ -306,10 +332,17 @@ async function run() {
 
     // get tag search post
     app.get("/tag-search", async (req, res) => {
+      const pages = parseInt(req.query.pages) - 1;
+      const size = parseInt(req.query.size);
       const tag = req.query.tag;
       const query = { tag: tag };
       const sort = { date: -1 };
-      const result = await postCollection.find(query).sort(sort).toArray();
+      const result = await postCollection
+        .find(query)
+        .sort(sort)
+        .skip(pages * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
 
@@ -330,10 +363,24 @@ async function run() {
       res.send(result);
     });
 
+    // get all post count
+    app.get("/post-count", async (req, res) => {
+      const result = await postCollection.countDocuments();
+      res.send({ count: result });
+    });
+
     // get all post
     app.get("/all-post", async (req, res) => {
+      const pages = parseInt(req.query.pages) - 1;
+      const size = parseInt(req.query.size);
+
       const sort = { date: -1 };
-      const result = await postCollection.find().sort(sort).toArray();
+      const result = await postCollection
+        .find()
+        .sort(sort)
+        .skip(pages * size)
+        .limit(size)
+        .toArray();
       res.send(result);
     });
 
