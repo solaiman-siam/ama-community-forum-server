@@ -4,6 +4,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const e = require("express");
 const port = process.env.PORT || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const app = express();
@@ -42,6 +43,7 @@ async function run() {
     const postCollection = client.db("amaDB").collection("posts");
     const commentCollection = client.db("amaDB").collection("comments");
     const alltagsCollection = client.db("amaDB").collection("alltags");
+    const feedbackCollection = client.db("amaDB").collection("feedback");
     const tagCollection = client.db("amaDB").collection("tags");
     const announcementCollection = client
       .db("amaDB")
@@ -77,6 +79,40 @@ async function run() {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
+    // add upvote to db
+    app.post("/upVote/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const downVoteCount = await postCollection.findOne(query);
+
+      if (downVoteCount.downVote > 0) {
+        const updateOne = { $inc: { downVote: -1 } };
+        const result = await postCollection.updateOne(query, updateOne);
+      }
+
+      const updateOne = { $inc: { upVote: 1 } };
+      const result = await postCollection.updateOne(query, updateOne);
+      res.send(result);
+    });
+
+    // add downvote to db
+    app.post("/downVote/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const upVoteCount = await postCollection.findOne(query);
+      if (upVoteCount.upVote > 0) {
+        const updateOne = { $inc: { upVote: -1 } };
+        const result = await postCollection.updateOne(query, updateOne);
+      }
+      const updateOne = { $inc: { downVote: 1 } };
+      const result = await postCollection.updateOne(query, updateOne);
+      res.send(result);
+    });
+
+    // get Popular post
+    app.get("/popular-post", async (req, res) => {});
+
+    // get membership
     app.get("/membership/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -128,6 +164,28 @@ async function run() {
         });
         res.send(result);
       }
+    });
+
+    // added feedback to db
+    app.post("/add-feedback", async (req, res) => {
+      const feedback = req.body;
+      const result = await feedbackCollection.insertOne(feedback);
+      res.send(result);
+    });
+
+    // delete feedback and comment
+    app.delete("/delete-feedback/:id", async (req, res) => {
+      const deletedId = req.params.id;
+      console.log(deletedId);
+      const query = { _id: new ObjectId(deletedId) };
+      const deleteFeedback = await feedbackCollection.deleteOne(query);
+      res.send(deleteFeedback);
+    });
+
+    // get all feedbacks
+    app.get("/stored-feedback", async (req, res) => {
+      const result = await feedbackCollection.find().toArray();
+      res.send(result);
     });
 
     // get all comments post and users count
@@ -293,14 +351,6 @@ async function run() {
       const result = await postCollection.insertOne(postData);
       res.send(result);
     });
-
-    // get user status
-    // app.get("/user-status/:email", async (req, res) => {
-    //   const email = req.params.email;
-    //   const query = { email: email };
-    //   const result = await userCollection.findOne(query);
-    //   res.send(result);
-    // });
 
     // save new logged  user info
     app.post("/users", async (req, res) => {
