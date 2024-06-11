@@ -41,6 +41,7 @@ async function run() {
     const userCollection = client.db("amaDB").collection("users");
     const postCollection = client.db("amaDB").collection("posts");
     const commentCollection = client.db("amaDB").collection("comments");
+    const alltagsCollection = client.db("amaDB").collection("alltags");
     const tagCollection = client.db("amaDB").collection("tags");
     const announcementCollection = client
       .db("amaDB")
@@ -136,6 +137,30 @@ async function run() {
       const comments = await commentCollection.estimatedDocumentCount();
       res.send({ users, posts, comments });
     });
+    // get specific comments
+    app.get("/specific-comments/:title", async (req, res) => {
+      const title = req.params.title;
+      const query = { title: title };
+      const result = await commentCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // added admin tags
+    app.post("/all-tags", async (req, res) => {
+      const tagData = req.body;
+      const all = await alltagsCollection.find().toArray();
+      const isExist = all.filter((item) => item.tags === tagData.tags);
+      if (isExist.length < 1) {
+        const result = await alltagsCollection.insertOne(tagData);
+        res.send(result);
+      }
+    });
+
+    // get admin tags
+    app.get("/all-tags", async (req, res) => {
+      const result = await alltagsCollection.find().toArray();
+      res.send(result);
+    });
 
     // add comment
     app.post("/add-comment", async (req, res) => {
@@ -143,7 +168,7 @@ async function run() {
       const result = await commentCollection.insertOne(commentData);
       res.send(result);
       if (result.insertedId) {
-        const query = { _id: new ObjectId(commentData.postId) };
+        const query = { title: commentData.title };
         const updateOne = { $inc: { comment: 1 } };
         const allPost = await postCollection.updateOne(query, updateOne);
       }
@@ -152,7 +177,7 @@ async function run() {
     // get comment
     app.get("/comments/:id", async (req, res) => {
       const postId = req.params.id;
-      const query = { postId: postId };
+      const query = { title: postId };
       const result = await commentCollection.find(query).toArray();
       res.send(result);
     });
