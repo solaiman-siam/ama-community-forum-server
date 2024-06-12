@@ -78,12 +78,12 @@ async function run() {
     app.post("/logout", async (req, res) => {
       const user = req.body;
       res
-        .clearCookie("cookie", { ...cookieOptions, maxAge: 0 })
+        .clearCookie("token", { ...cookieOptions, maxAge: 0 })
         .send({ success: true });
     });
 
     // stripe payment related api
-    app.post("/create-payment-intent", async (req, res) => {
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
       const paymentIntent = await stripe.paymentIntents.create({
@@ -96,7 +96,7 @@ async function run() {
     });
 
     // add upvote to db
-    app.post("/upVote/:id", async (req, res) => {
+    app.post("/upVote/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const downVoteCount = await postCollection.findOne(query);
@@ -112,7 +112,7 @@ async function run() {
     });
 
     // add downvote to db
-    app.post("/downVote/:id", async (req, res) => {
+    app.post("/downVote/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const upVoteCount = await postCollection.findOne(query);
@@ -172,7 +172,7 @@ async function run() {
     });
 
     // upgrade user role
-    app.post("/upgrade/:email", async (req, res) => {
+    app.post("/upgrade/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       updateDoc = {
@@ -218,14 +218,14 @@ async function run() {
     });
 
     // added feedback to db
-    app.post("/add-feedback", async (req, res) => {
+    app.post("/add-feedback", verifyToken, async (req, res) => {
       const feedback = req.body;
       const result = await feedbackCollection.insertOne(feedback);
       res.send(result);
     });
 
     // delete feedback and comment
-    app.delete("/delete-feedback/:id", async (req, res) => {
+    app.delete("/delete-feedback/:id", verifyToken, async (req, res) => {
       const deletedId = req.params.id;
       console.log(deletedId);
       const query = { _id: new ObjectId(deletedId) };
@@ -240,7 +240,7 @@ async function run() {
     });
 
     // get all comments post and users count
-    app.get("/statistics", async (req, res) => {
+    app.get("/statistics", verifyToken, async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const posts = await postCollection.estimatedDocumentCount();
       const comments = await commentCollection.estimatedDocumentCount();
@@ -317,7 +317,7 @@ async function run() {
     });
 
     // update role
-    app.post("/make-admin/:id", async (req, res) => {
+    app.post("/make-admin/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
@@ -341,7 +341,7 @@ async function run() {
     });
 
     // get all users
-    app.get("/manage-users", async (req, res) => {
+    app.get("/manage-users", verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -353,7 +353,7 @@ async function run() {
     });
 
     // add announcement to db
-    app.post("/add-announcement", async (req, res) => {
+    app.post("/add-announcement", verifyToken, async (req, res) => {
       const announcementData = req.body;
       const result = await announcementCollection.insertOne(announcementData);
       res.send(result);
@@ -376,7 +376,7 @@ async function run() {
     });
 
     // delete a post
-    app.delete("/delete-post/:id", async (req, res) => {
+    app.delete("/delete-post/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await postCollection.deleteOne(query);
@@ -399,7 +399,7 @@ async function run() {
     });
 
     // get users post
-    app.get("/my-post/:email", async (req, res) => {
+    app.get("/my-post/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
       const result = await postCollection.find(query).toArray();
@@ -407,7 +407,7 @@ async function run() {
     });
 
     // save post data to db
-    app.post("/add-post", async (req, res) => {
+    app.post("/add-post", verifyToken, async (req, res) => {
       const postData = req.body;
       const result = await postCollection.insertOne(postData);
       res.send(result);
